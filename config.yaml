@@ -1,0 +1,139 @@
+input:
+  resource: "test_input"
+
+buffer:
+  system_window: 
+    timestamp_mapping: this.timestamp
+    size: 12s
+    slide: 6s
+
+pipeline:
+  processors:
+    - branch:
+        request_map: |
+            root = if ! this.data.exists("zone") {
+                deleted()
+            } else {
+                this
+            }
+        processors:
+            - sql_select:
+                driver: postgres
+                dsn: postgres://postgres:postgres@172.17.0.1:5432/diplom?sslmode=disable
+                table: zones
+                columns:
+                    - id
+                    - name
+                    - level
+                    - time_limit
+                    - type
+                where: id = ?
+                args_mapping: root = [ this.data.zone ]
+        result_map: root.data.zone = this.index(0)
+
+    - mapping: |
+        if this.type == "card"{
+            let card_loc = this.data.location
+            let card_owner = this.data.owner_id
+            let card_id = this.data.id
+
+            root = json().from_all().filter(event -> event.type == "employee" && event.data.id == $card_owner).
+                map_each(employee -> employee.data.location.(
+                    employee_loc -> {
+                        "type": "employee_lost_card",
+                        "card_id": $card_id,
+                        "card_owner_id": $card_owner,
+                        "distation": (employee_loc.latitude - $card_loc.latitude) * (employee_loc.latitude - $card_loc.latitude) + (employee_loc.longitude- $card_loc.longitude) * (employee_loc.longitude- $card_loc.longitude)
+                    }
+                )
+            ).filter(distation_event -> distation_event.distation > 1.0).unique(distation_event -> distation_event.card_id)
+        }
+
+    - mapping: |
+        if this.type == "employee"{
+            let cur_time = this.data.time_in_current_zone
+            let time_limit = this.data.zone.time_limit.ts_sub("0000-01-01T00:00:00.000Z").abs()
+
+            let employee_level = this.data.level
+            let zone_level = this.data.zone.level
+
+            if this.data.zone.type == "public"{
+
+                if $cur_time > $time_limit && $employee_level < $zone_level {
+                        root.type = "employee_exceeded_time_limit"
+                        root.employee_id = this.data.id
+                        root.exceeded_time = ($cur_time - $time_limit)/1000000000
+                        root.zone_id = this.data.zone.id
+                    }
+
+            } else {
+
+                if $employee_level < $zone_level {
+                        root.type = "employee_access_denided"
+                        root.employee_id = this.data.id
+                        root.employee_level = $employee_level
+                        root.zone_id = this.data.zone.id
+                        root.zone_level = $zone_level
+                }
+
+            }
+        }
+
+
+    - switch:
+        - check: this.type() == "array"
+          processors:
+            - unarchive:
+                format: json_array
+
+    - switch:
+        - check: this.type == "employee_lost_card"
+          processors:
+            - mapping: |
+                root.level = "WARN"
+                root.message = "Employee with id %v lost card %v. Distation between employee and card: %.2f".format(this.card_owner_id, this.card_id, this.distation)
+                root.timestamp = now()
+        - check: this.type == "employee_exceeded_time_limit"
+          processors:
+            - mapping: |
+                root.level = "ERROR"
+                root.message = "Employee %v exceeded time limit in zone %v on %v sec".format(this.employee_id, this.zone_id, this.exceeded_time)
+                root.timestamp = now()
+        - check: this.type == "employee_access_denided"
+          processors:
+            - mapping: |
+                root.level = "ERROR"
+                root.message = "Employee %v access denided in zone %v. Zone level %v and employee level %v".format(this.employee_id, this.zone_id, this.zone_level, this.employee_level)
+                root.timestamp = now()
+        - check: 1==1
+          processors:
+            - mapping: root = deleted()
+
+
+output:
+  resource: "test_output"
+
+logger:
+  level: DEBUG
+  format: logfmt
+
+input_resources:
+  - label: "test_input"
+    kafka:
+      addresses:
+        - kafka:29092
+      topics:
+        - test-employee
+        - test-enter
+        - test-card
+        - test-pass
+      consumer_group: test_cons_grp
+    
+
+output_resources:
+  - label: "test_output"
+    kafka:
+      addresses:
+        - kafka:29092
+      topic: test-result
+    
