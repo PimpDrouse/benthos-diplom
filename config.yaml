@@ -9,45 +9,45 @@ buffer:
 
 pipeline:
   processors:
-    - branch:
-        request_map: |
-            root = if ! this.data.exists("zone") {
-                deleted()
-            } else {
-                this
-            }
-        processors:
-            - sql_select:
-                driver: postgres
-                dsn: postgres://postgres:postgres@172.17.0.1:5432/diplom?sslmode=disable
-                table: zones
-                columns:
-                    - id
-                    - name
-                    - level
-                    - time_limit
-                    - type
-                where: id = ?
-                args_mapping: root = [ this.data.zone ]
-        result_map: root.data.zone = this.index(0)
+# - branch:
+#     request_map: |
+#         root = if ! this.data.exists("zone") {
+#             deleted()
+#         } else {
+#             this
+#         }
+#     processors:
+#         - sql_select:
+#             driver: postgres
+#             dsn: postgres://postgres:postgres@172.17.0.1:5432/diplom?sslmode=disable
+#             table: zones
+#             columns:
+#                 - id
+#                 - name
+#                 - level
+#                 - time_limit
+#                 - type
+#             where: id = ?
+#             args_mapping: root = [ this.data.zone ]
+#     result_map: root.data.zone = this.index(0)
 
-    - mapping: |
-        if this.type == "card"{
-            let card_loc = this.data.location
-            let card_owner = this.data.owner_id
-            let card_id = this.data.id
+# - mapping: |
+#     if this.type == "card"{
+#         let card_loc = this.data.location
+#         let card_owner = this.data.owner_id
+#         let card_id = this.data.id
 
-            root = json().from_all().filter(event -> event.type == "employee" && event.data.id == $card_owner).
-                map_each(employee -> employee.data.location.(
-                    employee_loc -> {
-                        "type": "employee_lost_card",
-                        "card_id": $card_id,
-                        "card_owner_id": $card_owner,
-                        "distation": (employee_loc.latitude - $card_loc.latitude) * (employee_loc.latitude - $card_loc.latitude) + (employee_loc.longitude- $card_loc.longitude) * (employee_loc.longitude- $card_loc.longitude)
-                    }
-                )
-            ).filter(distation_event -> distation_event.distation > 1.0).unique(distation_event -> distation_event.card_id)
-        }
+#         root = json().from_all().filter(event -> event.type == "employee" && event.data.id == $card_owner).
+#             map_each(employee -> employee.data.location.(
+#                 employee_loc -> {
+#                     "type": "employee_lost_card",
+#                     "card_id": $card_id,
+#                     "card_owner_id": $card_owner,
+#                     "distation": (employee_loc.latitude - $card_loc.latitude) * (employee_loc.latitude - $card_loc.latitude) + (employee_loc.longitude- $card_loc.longitude) * (employee_loc.longitude- $card_loc.longitude)
+#                 }
+#             )
+#         ).filter(distation_event -> distation_event.distation > 1.0).unique(distation_event -> distation_event.card_id)
+#     }
 
     - mapping: |
         if this.type == "employee"{
@@ -112,28 +112,3 @@ pipeline:
 
 output:
   resource: "test_output"
-
-logger:
-  level: DEBUG
-  format: logfmt
-
-input_resources:
-  - label: "test_input"
-    kafka:
-      addresses:
-        - kafka:29092
-      topics:
-        - test-employee
-        - test-enter
-        - test-card
-        - test-pass
-      consumer_group: test_cons_grp
-    
-
-output_resources:
-  - label: "test_output"
-    kafka:
-      addresses:
-        - kafka:29092
-      topic: test-result
-    

@@ -1,0 +1,71 @@
+input_resources:
+  - label: "test_card_input"
+    kafka:
+      addresses:
+        - kafka:29092
+      topics:
+        - test-card
+      consumer_group: test_cons_grp
+
+cache_resources:
+  - label: card_cache
+    memory:
+      compaction_interval: 20s
+      default_ttl: 60s
+
+processor_resources:
+  - label: card_event
+    processors:
+      - group_by_value: 
+          value: ${!json("data.id")}
+
+      # Save sorted array of cards with same id in cache
+      - branch:
+          request_map: root = this
+          processors:
+            - cache:
+                resource: card_cache
+                operator: set
+                key: ${!json("data.id")}
+                value: ${!json().from_all().sort_by(ev -> ev.timestamp).map_each(ev -> ev.data)}
+        
+      - for_each:
+          - branch:
+              request_map: root = this
+              processors:
+                - cache:
+                    resource: employee_cache
+                    operator: get
+                    key: ${!json("data.owner_id")}
+              result_map:
+                root.data.owner_events = this
+
+      - mapping: root = this.data
+
+      - mapping: |
+          let limit_distation = 1.0
+
+          let distation =  this.owner_events.map_each(event -> {
+            "employee": event,
+            "distation": (this.location.latitude - event.location.latitude) * (this.location.latitude - event.location.latitude) + (this.location.longitude - event.location.longitude) * (this.location.longitude - event.location.longitude)
+          }).filter(distation_event -> distation_event.distation > $limit_distation).sort_by(ev -> ev.distation)
+
+          if $distation.length() > 0 {
+
+            root.type = "card_lost"
+            root.timestamp = now()
+            root.data.card = {
+              "id": this.id,
+              "location": this.location,
+              "owner_id": this.owner_id
+            }
+
+            root.data.employee = $distation.index(-1).employee
+            root.data.distation = $distation.index(-1).distation
+
+          } else {
+            root = deleted()
+          }
+# - label: card_lost
+#   processors:
+#     - nope: {}

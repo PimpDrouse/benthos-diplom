@@ -1,0 +1,14 @@
+input_resources:
+  - label: "test_enter_input"
+    kafka:
+      addresses:
+        - kafka:29092
+      topics:
+        - test-enter
+      consumer_group: test_cons_grp
+
+cache_resources:
+  - label: enter_cache
+    memory:
+      compaction_interval: 20s
+      default_ttl: 60s

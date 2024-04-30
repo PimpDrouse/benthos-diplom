@@ -1,4 +1,4 @@
-version: '2'
+version: '3'
 services:
 
   kafka:
@@ -43,10 +43,12 @@ services:
   benthos:
     image: ghcr.io/benthosdev/benthos:4.26
     hostname: benthos
+    command: -r "/resources/*.yaml" streams /streams/*.yaml
     container_name: benthos-4.26
     depends_on:
       - kafka
     ports:
       - "4195:4195"
     volumes:
-      - "./config.yaml:/benthos.yaml"
+      - "./resources:/resources"
+      - "./streams:/streams"

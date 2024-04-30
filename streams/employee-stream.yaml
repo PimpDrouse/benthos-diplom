@@ -1,0 +1,20 @@
+input:
+  resource: "test_employee_input"
+
+buffer:
+  system_window: 
+    timestamp_mapping: this.timestamp
+    size: 9s
+    slide: 3s
+
+pipeline:
+  processors:
+    - switch:
+        - check: this.type == "employee"
+          processors:
+            - resource: employee_event
+        - check: this.type == "employee_changed_zone_event"
+          processors:
+            - resource: employee_changed_zone_event
+output:
+  resource: "test_output"

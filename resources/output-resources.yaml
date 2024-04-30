@@ -1,0 +1,34 @@
+output_resources:
+  - label: "test_output"
+    switch:
+      cases:
+        - check: this.type == "employee_access_denided"
+          output:
+            kafka:
+              addresses:
+                - kafka:29092
+              topic: test-employee
+        - check: this.type == "employee_changed_zone"
+          output:
+            kafka:
+              addresses:
+                - kafka:29092
+              topic: test-employee
+        - check: this.type == "enter_opened_with_pass"
+          output:
+            kafka:
+              addresses:
+                - kafka:29092
+              topic: test-enter
+        - check: this.type == "enter_opened_without_pass"
+          output:
+            kafka:
+              addresses:
+                - kafka:29092
+              topic: test-enter
+        - check: 1==1
+          output:
+            kafka:
+              addresses:
+                - kafka:29092
+              topic: test-result

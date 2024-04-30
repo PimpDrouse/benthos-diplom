@@ -1,0 +1,27 @@
+input:
+  resource: "test_pass_input"
+
+buffer:
+  system_window: 
+    timestamp_mapping: this.timestamp
+    size: 9s
+    slide: 3s
+
+pipeline:
+  processors:
+    - group_by_value: 
+        value: ${!json("data.id")}
+      
+    - branch:
+        request_map: root = this
+        processors:
+          - cache:
+              resource: pass_cache
+              operator: set
+              key: ${!json("data.id")}
+              value: ${!json().from_all().sort_by(ev -> ev.timestamp).map_each(ev -> ev.data)}
+
+    - mapping: root = deleted()
+              
+output:
+  resource: "test_output"

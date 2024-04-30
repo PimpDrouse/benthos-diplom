@@ -1,0 +1,18 @@
+input:
+  resource: "test_card_input"
+
+buffer:
+  system_window: 
+    timestamp_mapping: this.timestamp
+    size: 9s
+    slide: 3s
+
+pipeline:
+  processors:
+    - switch:
+        - check: this.type == "card"
+          processors: 
+            - resource: card_event
+
+output:
+  resource: "test_output"

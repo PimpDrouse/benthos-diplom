@@ -1,0 +1,181 @@
+input_resources:
+  - label: "test_employee_input"
+    kafka:
+      addresses:
+        - kafka:29092
+      topics:
+        - test-employee
+      consumer_group: test_cons_grp
+
+cache_resources:
+  - label: employee_cache
+    memory:
+      compaction_interval: 20s
+      default_ttl: 60s
+  - label: employee_changed_zone_cache
+    memory:
+      compaction_interval: 20s
+      default_ttl: 60s
+
+processor_resources:
+  - label: employee_event
+    processors:
+      - group_by_value: 
+          value: ${!json("data.id")}
+
+      - for_each:
+          - branch:
+              request_map: |
+                  root = this
+              processors:
+                  - sql_select:
+                      driver: postgres
+                      dsn: postgres://postgres:postgres@172.17.0.1:5432/diplom?sslmode=disable
+                      table: zones
+                      columns:
+                          - id
+                          - name
+                          - level
+                          - time_limit
+                          - type
+                      where: id = ?
+                      args_mapping: root = [ this.data.zone ]
+              result_map: |
+                root.data.zone = this.index(0)
+                root.data.zone.time_limit = this.index(0).time_limit.ts_sub("0000-01-01T00:00:00.000Z").abs()
+        
+          - branch:
+              request_map: root = this
+              processors:
+                - cache:
+                    resource: employee_cache
+                    operator: set
+                    key: ${!json("data.id")}
+                    value: ${!json().from_all().sort_by(ev -> ev.timestamp).map_each(ev -> ev.data)}
+
+      - mapping: |
+          root = this
+          root.events = []
+
+      - label: "employee_exceeded_time_limit"
+        mapping: |
+          root = this
+
+          if this.data.zone.type == "public"{
+
+            let cur_time = this.data.time_in_current_zone
+            let time_limit = this.data.zone.time_limit
+            let employee_level = this.data.level
+            let zone_level = this.data.zone.level
+
+            if $cur_time > $time_limit && $employee_level < $zone_level {
+              let event = {
+                "type": "employee_exceeded_time_limit",
+                "timestamp": now(),
+                "data": {
+                  "id": this.data.id,
+                  "duration": ($cur_time - $time_limit)/1000000000,
+                  "zone": this.data.zone.id
+                }
+              }
+
+              root.events = this.events.append($event)
+            }
+          }
+
+      - label: "employee_access_denided"
+        mapping: |
+          root = this
+
+          if this.data.zone.type == "private"{
+
+            let employee_level = this.data.level
+            let zone_level = this.data.zone.level
+
+            if $employee_level < $zone_level {
+              let event = {
+                "type": "employee_access_denided",
+                "timestamp": now(),
+                "data": {
+                  "id": this.data.id,
+                  "level": $employee_level,
+                  "duration": ($cur_time - $time_limit)/1000000000,
+                  "zone_id": this.data.zone.id,
+                  "zone_level": $zone_level,
+                }
+              }
+
+              root.events = this.events.append($event)
+            } 
+          }
+      
+      # Подумать над стр
+      - label: "employee_change_zone"
+        mapping: |
+          root = this
+
+          let next_index = batch_index()+1
+          if $next_index < batch_size(){
+
+            let next_event = json().from($next_index)
+
+            if $next_event.data.zone.id != this.data.zone.id{
+              let event = {
+                "type": "employee_changed_zone",
+                "timestamp": now(),
+                "data": {
+                  "id": this.data.id,
+                  "location": this.data.location,
+                  "zone": this.data.zone.id,
+                  "next": {
+                    "zone": $next_event.data.zone.id,
+                    "location": $next_event.data.location
+                  }
+                }
+              }
+
+              root.events = this.events.append($event)
+            }
+          }
+
+      - switch:
+        - check: this.events.type() == "array"
+          processors:
+            - mapping: root = this.events
+            - unarchive:
+                format: json_array
+        - check: 1==1
+          processors: 
+            - mapping: root = deleted()
+
+  - lable: employee_changed_zone_event
+    processors:
+      - group_by_value:
+          value: ${!json("data.zone")}
+      - branch:
+          request_map: | 
+            root = {
+              key: this.data.zone,
+              val: json("data").from_all().filter(data -> data.zone == this.data.zone)
+            }
+          processors:
+            - cache:
+                resource: employee_changed_zone_cache
+                operator: set
+                key: this.key
+                value: this.val
+
+
+                    
+
+# if this.data.zone.type == "public"{
+
+#   if $cur_time > $time_limit && $employee_level < $zone_level {
+#     root.type = "employee_exceeded_time_limit"
+#     root.employee_id = this.data.id
+#     root.exceeded_time = ($cur_time - $time_limit)/1000000000
+#     root.zone_id = this.data.zone.id
+#     root.timestamp = now()
+#   } else {
+#     root = deleted()
+#   }

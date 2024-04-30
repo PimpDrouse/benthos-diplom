@@ -1,0 +1,63 @@
+{
+    "$schema": "https://json-schema.org/draft/2019-09/schema",
+    "$id": "file://event_schema.json",
+    "title": "Event json schema",
+    "description": "Схема для любого события(event), которое используется для передачи информации о событии",
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "string",
+            "description": "Уникальный идентификатор события"
+        },
+        "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Время обнаружения события"
+        },
+        "data":{
+            "type": "object",
+            "description": "Данные самого события",
+            "anyOf": [
+                {
+                    "$ref": "file://card_event.json"
+                },
+                {
+                    "$ref": "file://card_lost.json"
+                },
+                {
+                    "$ref": "file://pass_event.json"
+                },
+                {
+                    "$ref": "file://pass_access_denided.json"
+                },
+                {
+                    "$ref": "file://pass_access_allow.json"
+                },
+                {
+                    "$ref": "file://enter_event.json"
+                },
+                {
+                    "$ref": "file://enter_open_with_pass.json"
+                },
+                {
+                    "$ref": "file://enter_open_without_pass.json"
+                },
+                {
+                    "$ref": "file://employee_event.json"
+                },
+                {
+                    "$ref": "file://employee_change_zone.json"
+                },
+                {
+                    "$ref": "file://employee_time_exceeded.json"
+                },
+                {
+                    "$ref": "file://employee_access_denided.json"
+                },
+
+
+            ]
+        }
+    }, 
+    "required": ["id", "timestamp", "data"]
+}
