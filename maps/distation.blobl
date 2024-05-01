@@ -2,5 +2,5 @@ map distation_square {
     let long =  (this.loc1.longitude - this.loc2.longitude) * (this.loc1.longitude - this.loc2.longitude)
     let lat = (this.loc1.latitude - this.loc2.latitude) * (this.loc1.latitude - this.loc2.latitude)
 
-    root = ($long + $lat) ^ 2
+    root = ($long + $lat)
 }

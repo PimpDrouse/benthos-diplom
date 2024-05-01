@@ -21,53 +21,53 @@ pipeline:
               key: ${!json("data.id")}
               value: ${!json().from_all().sort_by(ev -> ev.timestamp).map_each(ev -> ev.data)}
     
-    - for_each:
-        - branch:
-            request_map: root = this.data.zone_in
-            processors:
-              - cache: 
-                  resource: employee_changed_zone_cache
-                  operator: get
-                  key: this
-            result_map: root.enter.in = this
+#     - for_each:
+#         - branch:
+#             request_map: root = this.data.zone_in
+#             processors:
+#               - cache: 
+#                   resource: employee_changed_zone_cache
+#                   operator: get
+#                   key: this
+#             result_map: root.enter.in = this
 
-        - branch:
-            request_map: root = this.data.zone_out
-            processors:
-              - cache: 
-                  resource: employee_changed_zone_cache
-                  operator: get
-                  key: this
-            result_map: root.enter.out = this
+#         - branch:
+#             request_map: root = this.data.zone_out
+#             processors:
+#               - cache: 
+#                   resource: employee_changed_zone_cache
+#                   operator: get
+#                   key: this
+#             result_map: root.enter.out = this
 
-    - label: enter_filter_zones_in_out
-      mapping: |
-        root = this
+#     - label: enter_filter_zones_in_out
+#       mapping: |
+#         root = this
 
-        let ins = this.event.in.filter(data -> data.next.zone == this.data.zone_out)
-        let outs = this.event.out.filter(data -> data.next.zone == this.data.zone_in)
+#         let ins = this.event.in.filter(data -> data.next.zone == this.data.zone_out)
+#         let outs = this.event.out.filter(data -> data.next.zone == this.data.zone_in)
 
-        root.enters = $ins.append($outs)
-# root.enter.in = this.event.in.filter(data -> data.next.zone == this.data.zone_out)
-# root.enter.out = this.event.out.filter(data -> data.next.zone == this.data.zone_in)
+#         root.enters = $ins.append($outs)
+# # root.enter.in = this.event.in.filter(data -> data.next.zone == this.data.zone_out)
+# # root.enter.out = this.event.out.filter(data -> data.next.zone == this.data.zone_in)
 
-    - label: enter_filter_distations
-      mapping: |
-        import ../maps/distation.blobl
+#     - label: enter_filter_distations
+#       mapping: |
+#         import ../maps/distation.blobl
 
-        root = this
+#         root = this
 
-        root.enters = this.enters.filter(
-          data -> {
-            "loc1": data.location,
-            "loc2": this.data.location
-          }.apply("distation_square") <= 1 
-          || {
-            "loc1": data.next.location,
-            "loc2": this.data.location
-          }.apply("distation_square") <= 1
+#         root.enters = this.enters.filter(
+#           data -> {
+#             "loc1": data.location,
+#             "loc2": this.data.location
+#           }.apply("distation_square") <= 1 
+#           || {
+#             "loc1": data.next.location,
+#             "loc2": this.data.location
+#           }.apply("distation_square") <= 1
 
-    - label:
+#     - label:
 
 
 # - for_each:

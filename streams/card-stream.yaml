@@ -9,10 +9,19 @@ buffer:
 
 pipeline:
   processors:
+# Set card metadata
+    - mapping: meta card_lost_limit = 1.0
     - switch:
         - check: this.type == "card"
           processors: 
-            - resource: card_event
+            - group_by_value: 
+                value: ${!json("data.id")}
+
+            - resource: card_employee_enrichment_and_save
+            
+            - workflow:
+                order:
+                  - [card_lost_event]
 
 output:
   resource: "test_output"

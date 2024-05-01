@@ -50,5 +50,6 @@ services:
     ports:
       - "4195:4195"
     volumes:
+      - "./maps:/maps"
       - "./resources:/resources"
       - "./streams:/streams"
