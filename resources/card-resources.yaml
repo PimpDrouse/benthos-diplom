@@ -56,7 +56,7 @@ processor_resources:
             }.apply("distation_square")
           }).filter(ev -> ev.distation > $limit).sort_by(ev -> ev.distation)
 
-        if $distation.length() < 0 {
+        if $distation.length() <= 0 {
           root = deleted()
         } else {
           root = this

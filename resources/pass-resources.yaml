@@ -7,6 +7,23 @@ input_resources:
         - test-pass
       consumer_group: test_cons_grp
 
+processor_resources:
+########################################## pass_save ###########################################
+  - label: pass_save
+    for_each:
+      - branch:
+          request_map: |
+            root = {
+              "key": this.data.id,
+              "value": json().from_all().filter(ev -> ev.data.id == this.data.id).sort_by(ev -> ev.timestamp)
+            }
+          processors:
+            - cache:
+                resource: pass_cache
+                operator: set
+                key: ${!this.key}
+                value: ${!this.value}
+
 cache_resources:
   - label: pass_cache
     memory:

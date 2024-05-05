@@ -14,14 +14,14 @@ pipeline:
           processors:
             - group_by_value:  
                 value: ${!json("data.id")}
+
             - resource: employee_zone_enrichment_and_save
-            
+
             - workflow:
                 order: 
-                  - [employee_exceeded_time_limit, employee_access_denided, employee_changed_zone]
-
-# - check: this.type == "employee_changed_zone_event"
-#   processors:
-#     - resource: employee_changed_zone_event
+                  - [employee_exceeded_time_limit, employee_access_denided, employee_enrich_next_zone]
+                  - [ employee_enrich_enter ]
+                  - [employee_changed_zone_event]
+                  - [ employee_window_entered_event ]
 output:
   resource: "test_output"
