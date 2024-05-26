@@ -6,11 +6,20 @@ output_resources:
           output:
             kafka:
               addresses:
-                - kafka:29092
+                - '${KAFKA_HOST}'
               topic: test-employee
+
+#            processors:
+#              - mapping: |
+#                  root = this
+#                  root.meta = deleted()
         - check: 1==1
           output:
             kafka:
               addresses:
-                - kafka:29092
+                - '${KAFKA_HOST}'
               topic: test-result
+#            processors:
+#              - mapping: |
+#                  root = this
+#                  root.meta = deleted()

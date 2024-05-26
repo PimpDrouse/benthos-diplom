@@ -2,10 +2,58 @@ input_resources:
   - label: "test_enter_input"
     kafka:
       addresses:
-        - kafka:29092
+        - '${KAFKA_HOST}'
       topics:
         - test-enter
       consumer_group: test_cons_grp
+
+processor_resources:
+  - label: enter_enrich_type
+    branch:
+      request_map: root = this
+      processors:
+        - sql_select:
+            driver: postgres
+            dsn: ${POSTGRES_DSN}
+            table: enters
+            columns:
+              - type
+            where: id = ?
+            args_mapping: root = [ this.data.id ]
+      result_map: root.data.type = this.index(0).type
+
+  - label: enter_save_by_zones
+    branch:
+      request_map: |
+        root = {
+          "key": this.data,
+          "value": json().from_all().sort_by(ts -> ts.timestamp) 
+          }
+      processors:
+        - cache:
+            resource: enter_cache
+            operator: set
+            key: ${!this.key.zone1}-${!this.key.zone2}
+            value: ${!this.value}
+        - cache:
+            resource: enter_cache
+            operator: set
+            key: ${!this.key.zone2}-${!this.key.zone1}
+            value: ${!this.value}
+
+  - label: enter_save_by_id
+    branch:
+      request_map: |
+        root = {
+          "key": this.data.id,
+          "value":json().from_all().sort_by(ev -> ev.timestamp)
+        }
+      processors:
+        - cache:
+            resource: enter_cache
+            operator: set
+            key: ${!this.key}
+            value: ${!this.value}
 
 cache_resources:
   - label: enter_cache

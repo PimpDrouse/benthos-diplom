@@ -2,7 +2,7 @@ input_resources:
   - label: "test_pass_input"
     kafka:
       addresses:
-        - kafka:29092
+        - '${KAFKA_HOST}'
       topics:
         - test-pass
       consumer_group: test_cons_grp

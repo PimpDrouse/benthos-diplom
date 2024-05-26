@@ -2,7 +2,7 @@ input_resources:
   - label: "test_employee_input"
     kafka:
       addresses:
-        - kafka:29092
+        - '${KAFKA_HOST}'
       topics:
         - test-employee
       consumer_group: test_cons_grp
@@ -28,7 +28,7 @@ processor_resources:
           processors:
             - sql_select:
                 driver: postgres
-                dsn: postgres://postgres:postgres@172.17.0.1:5432/diplom?sslmode=disable
+                dsn: ${POSTGRES_DSN}
                 table: zones
                 columns:
                     - id
@@ -56,7 +56,7 @@ processor_resources:
                 value: ${!this.value}
 
 ########################################## employee_exceeded_time_limit_event ###########################################
-  - label: employee_exceeded_time_limit
+  - label: employee_exceeded_time_limit_event
     branch:
       request_map: |
         let cur_time = this.data.time_in_current_zone
@@ -64,10 +64,10 @@ processor_resources:
         let employee_level = this.data.level
         let zone_level = this.data.zone.level
 
-        root = if this.data.zone.type != "public" && ($cur_time < $time_limit || $employee_level >= $zone_level) {
-          deleted()
-        } else{
+        root = if this.data.zone.type == "public" && $cur_time > $time_limit && $employee_level < $zone_level {
           this
+        } else{
+          deleted()
         }
       processors:
         - label: "test"
@@ -79,21 +79,21 @@ processor_resources:
               "zone": this.data.zone.id
             }
       result_map: |
-        root.type = "employee_exceeded_time_limit"
+        root.type = "employee_exceeded_time_limit_event"
         root.timestamp = this.timestamp
         root.data = this.data
         
-########################################## employee_access_denided ###########################################
-  - label: employee_access_denided
+########################################## employee_access_denied ###########################################
+  - label: employee_access_denied_event
     branch: 
       request_map: |
         let employee_level = this.data.level
         let zone_level = this.data.zone.level
 
-        root = if this.data.zone.type != "private" && $employee_level >= $zone_level {
-          deleted()
-        } else {
+        root = if this.data.zone.type == "private" && $employee_level < $zone_level {
           this
+        } else {
+          deleted()
         }
       processors:
         - mapping: |
@@ -106,7 +106,7 @@ processor_resources:
             }
               
       result_map: |
-        root.type = "employee_access_denided"
+        root.type = "employee_access_denied_event"
         root.timestamp = this.timestamp
         root.data = this.data
 
@@ -175,13 +175,14 @@ processor_resources:
         root.type = "employee_changed_zone_event"
         root.timestamp = this.data.enter.timestamp
         root.data = this.data
+        root.data.enter = this.data.enter.data
 
 ########################################## employee_window_entered_event ###########################################
 
   - label: "employee_window_entered_event"
     branch:
       request_map: |
-        if this.type == "employee_changed_zone_event" && this.data.enter.data.type == "window"{
+        if this.type == "employee_changed_zone_event" && this.data.enter.type == "window"{
           root = this
         } else {
           root = deleted()

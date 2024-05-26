@@ -2,7 +2,7 @@ input_resources:
   - label: "test_card_input"
     kafka:
       addresses:
-        - kafka:29092
+        - '${KAFKA_HOST}'
       topics:
         - test-card
       consumer_group: test_cons_grp
@@ -76,39 +76,6 @@ processor_resources:
             root.data.distation = this.distation.distation
 
       result_map: |
-        root.type = "card_lost"
+        root.type = "card_lost_event"
         root.timestamp = this.timestamp
         root.data = this.data
-
-  # - mapping: |
-  #     import "/maps/distation.blobl"
-  #     let limit = @card_lost_limit * @card_lost_limit
-
-  #     let distation =  this.data.owner_events.map_each(event -> {
-  #       "employee": event.data,
-  #       "location": event.location,
-  #       "distation": {
-  #         "loc1": this.data.location,
-  #         "loc2": event.location
-  #       }.apply("distation_square")
-  #     }).filter(ev -> ev.distation > $limit).sort_by(ev -> ev.distation)
-
-  #     if $distation.length() > 0 {
-
-  #       root.type = "card_lost"
-  #       root.timestamp = this.timestamp
-  #       root.data.card = {
-  #         "id": this.data.id,
-  #         "location": this.data.location,
-  #         "owner_id": this.data.owner_id
-  #       }
-
-  #       root.data.employee = $distation.index(-1).employee
-  #       root.data.distation = $distation.index(-1).distation
-
-  #     } else {
-  #       root = deleted()
-  #     }
-  # - label: card_lost
-  #   processors:
-  #     - nope: {}

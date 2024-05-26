@@ -9,58 +9,60 @@ buffer:
 
 pipeline:
   processors:
-    - for_each:
-        - branch:
-            request_map: root = this
-            processors:
-              - sql_select:
-                  driver: postgres
-                  dsn: postgres://postgres:postgres@172.17.0.1:5432/diplom?sslmode=disable
-                  table: enters
-                  columns:
-                      - type
-                  where: id = ?
-                  args_mapping: root = [ this.data.id ]
-            result_map: root.data.type = this.index(0).type
 
-    - group_by_value: 
+    - for_each:
+        - resource: enter_enrich_type
+#        - branch:
+#            request_map: root = this
+#            processors:
+#              - sql_select:
+#                  driver: postgres
+#                  dsn: ${POSTGRES_DSN}
+#                  table: enters
+#                  columns:
+#                      - type
+#                  where: id = ?
+#                  args_mapping: root = [ this.data.id ]
+#            result_map: root.data.type = this.index(0).type
+
+    - group_by_value:
         value: ${!json("data.zone_in")}-${!json("data.zone_in")}
 
-    - branch:
-        request_map: |
-          root = {
-            "key": this.data,
-            "value": json().from_all().sort_by(ts -> ts.timestamp) 
-            }
-        processors:
-          - cache:
-              resource: enter_cache
-              operator: set
-              key: ${!this.key.zone1}-${!this.key.zone2}
-              value: ${!this.value}
-          - cache:
-              resource: enter_cache
-              operator: set
-              key: ${!this.key.zone2}-${!this.key.zone1}
-              value: ${!this.value}
+#    - branch:
+#        request_map: |
+#          root = {
+#            "key": this.data,
+#            "value": json().from_all().sort_by(ts -> ts.timestamp)
+#            }
+#        processors:
+#          - cache:
+#              resource: enter_cache
+#              operator: set
+#              key: ${!this.key.zone1}-${!this.key.zone2}
+#              value: ${!this.value}
+#          - cache:
+#              resource: enter_cache
+#              operator: set
+#              key: ${!this.key.zone2}-${!this.key.zone1}
+#              value: ${!this.value}
+    - resource: enter_save_by_zones
 
     - group_by_value: 
         value: ${!json("data.id")}
 
-    - branch:
-        request_map: |
-          root = {
-            "key": this.data.id,
-            "value":json().from_all().sort_by(ev -> ev.timestamp)
-          }
-        processors:
-          - cache:
-              resource: enter_cache
-              operator: set
-              key: ${!this.key}
-              value: ${!this.value}
-
-    - mapping: root = deleted()
+#    - branch:
+#        request_map: |
+#          root = {
+#            "key": this.data.id,
+#            "value":json().from_all().sort_by(ev -> ev.timestamp)
+#          }
+#        processors:
+#          - cache:
+#              resource: enter_cache
+#              operator: set
+#              key: ${!this.key}
+#              value: ${!this.value}
+    - resource: enter_save_by_id
 
 
               

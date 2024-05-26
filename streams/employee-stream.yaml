@@ -19,9 +19,9 @@ pipeline:
 
             - workflow:
                 order: 
-                  - [employee_exceeded_time_limit, employee_access_denided, employee_enrich_next_zone]
+                  - [ employee_exceeded_time_limit_event, employee_access_denied_event, employee_enrich_next_zone ]
                   - [ employee_enrich_enter ]
-                  - [employee_changed_zone_event]
+                  - [ employee_changed_zone_event ]
                   - [ employee_window_entered_event ]
 output:
   resource: "test_output"

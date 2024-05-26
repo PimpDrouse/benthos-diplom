@@ -9,7 +9,6 @@ buffer:
 
 pipeline:
   processors:
-# Set card metadata
     - mapping: meta card_lost_limit = 1.0
     - switch:
         - check: this.type == "card"
